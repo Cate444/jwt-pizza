@@ -9,12 +9,10 @@ As part of `Deliverable ⓵ Development deployment: JWT Pizza`, start up the app
 | View home page                                      | <Home />                         |                   |              |
 | Register new user<br/>(t@jwt.com, pw: test)         | <Register setUser={setUser} />   | POST /api/auth    |SELECT * FROM userRole WHERE userId=?  AND INSERT INTO userRole (userId, role, objectId) VALUES (?,?,0)|
 | Login new user<br/>(t@jwt.com, pw: test)            | <Login setUser={setUser} />      | PUT /api/auth     |SELECT * FROM userRole WHERE userId=? AND INSERT INTO userRole (userId, role, objectId) VALUES (?,?,0)|
-| Order pizza                                         | <Menu />                         | GET /api/order/menu,POST /api/order | SELECT * FROM menu
-INSERT INTO dinerOrder (dinerId, franchiseId, storeId, date) VALUES (?,?,?,now())
-INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?,?,?,?)             |
-| Verify pizza                                        |                                  | GET /api/order    | SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=?
-SELECT id, menuId, description, price FROM orderItem WHERE orderId=?|
-| View profile page                                   |                                  |                   |              |
+| Order pizza                                         | <Menu />                         | GET /api/order/menu,POST /api/order | SELECT * FROM menu INSERT INTO dinerOrder (dinerId,franchiseId, storeId, date) VALUES (?,?,?,now())INSERT INTO orderItem (orderId, menuId, description, price) VALUES (?,?,?,?)             |
+| Verify pizza                                        |                                  | GET /api/order    | SELECT id, franchiseId, storeId, date FROM dinerOrder WHERE dinerId=? SELECT id, menuId, description, price FROM orderItem WHERE orderId=?|
+| View profile page                                   | <DinerDashboard user={user} />   | GET /api/franchise/:userId| userRole WHERE role='franchisee' AND userId=?
+SELECT id, name FROM franchise WHERE id in (...), SELECT u.id, u.name, u.email FROM userRole ... WHERE ur.objectId=? AND ur.role='franchisee', SELECT s.id, s.name, SUM(oi.price)... FROM store ... WHERE s.franchiseId=?             |
 | View franchise<br/>(as diner)                       |<DinerDashboard user={user} />    |                   |              |
 | Logout                                              | <Logout setUser={setUser} />     | DELETE /api/auth  | DELETE FROM auth WHERE token=?             |
 | View About page                                     | <About />                        |                   |              |
