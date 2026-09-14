@@ -6,8 +6,8 @@ As part of `Deliverable ⓵ Development deployment: JWT Pizza`, start up the app
 
 | User activity                                       | Frontend component | Backend endpoints | Database SQL |
 | --------------------------------------------------- | ------------------ | ----------------- | ------------ |
-| View home page                                      |                    |                   |              |
-| Register new user<br/>(t@jwt.com, pw: test)         |                    |                   |              |
+| View home page                                      | HomePage.js        |  GET/api/home                 |              |
+| Register new user<br/>(t@jwt.com, pw: test)         | calls backend to register account|calls to database to create the entry| adds the user table|
 | Login new user<br/>(t@jwt.com, pw: test)            |                    |                   |              |
 | Order pizza                                         |                    |                   |              |
 | Verify pizza                                        |                    |                   |              |
