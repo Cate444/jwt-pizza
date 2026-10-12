@@ -77,6 +77,19 @@ export async function mockBackend(page: Page, options: MockOptions = {}) {
         return user ? json(route, publicUser(user)) : json(route, { message: 'unauthorized' }, 401);
       }
 
+      if ((m = path.match(/^\/api\/user\/(\w+)$/)) && method === 'PUT') {
+        const caller = userFromRequest(route);
+        if (!caller) return json(route, { message: 'unauthorized' }, 401);
+        const isAdmin = caller.roles.some((r) => r.role === 'admin');
+        if (caller.id !== m[1] && !isAdmin) return json(route, { message: 'unauthorized' }, 403);
+        const user = accounts.find((u) => u.id === m![1]);
+        if (!user) return json(route, { message: 'unknown user' }, 404);
+        if (body.name) user.name = body.name;
+        if (body.email) user.email = body.email;
+        if (body.password) user.password = body.password;
+        return json(route, { user: publicUser(user), token: tokenFor(user) });
+      }
+
       if (path === '/api/order/menu') return json(route, menu);
 
       if (path === '/api/order') {
