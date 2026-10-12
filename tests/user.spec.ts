@@ -172,3 +172,74 @@ test('admin deletes a user', async ({ page }) => {
   await login(page, users.diner);
   await expect(page.getByText('unknown user')).toBeVisible();
 });
+
+test('edit user validates name and email', async ({ page }) => {
+  await mockBackend(page, { loggedInAs: users.diner });
+  await page.goto('/');
+  await page.getByRole('link', { name: 'KC' }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+
+  const dialog = page.getByRole('dialog');
+  const update = dialog.getByRole('button', { name: 'Update' });
+
+  await dialog.getByRole('textbox', { name: 'Email' }).fill('not-an-email');
+  await expect(dialog.getByRole('alert')).toHaveText('Enter a valid email address');
+  await expect(update).toBeDisabled();
+
+  await dialog.getByRole('textbox', { name: 'Email' }).fill('kai@jwt.com');
+  await dialog.getByRole('textbox', { name: 'Name' }).fill('   ');
+  await expect(dialog.getByRole('alert')).toHaveText('Name is required');
+  await expect(update).toBeDisabled();
+
+  await dialog.getByRole('textbox', { name: 'Name' }).fill('Kai');
+  await expect(dialog.getByRole('alert')).toHaveText('');
+  await expect(update).toBeEnabled();
+});
+
+test('edit user shows an error when the update fails', async ({ page }) => {
+  await mockBackend(page, { loggedInAs: users.diner, updateUserFails: true });
+  await page.goto('/');
+  await page.getByRole('link', { name: 'KC' }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('textbox', { name: 'Name' }).fill('Kai Changed');
+  await dialog.getByRole('button', { name: 'Update' }).click();
+
+  await expect(dialog.getByRole('alert')).toHaveText('Unable to update user: unable to update user');
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole('main')).toContainText('Kai Chen');
+  await expect(page.getByRole('main')).not.toContainText('Kai Changed');
+
+  // Reopening the editor clears the old error and resets the fields
+  await dialog.getByRole('button').first().click();
+  await page.waitForSelector('[role="dialog"].hidden', { state: 'attached' });
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('');
+  await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue('Kai Chen');
+});
+
+test('admin sees an error when deleting a user fails', async ({ page }) => {
+  await mockBackend(page, { loggedInAs: users.admin, deleteUserFails: true });
+  await page.goto('/admin-dashboard');
+
+  await page.getByRole('row', { name: /d@jwt.com/ }).getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Unable to delete user: unable to delete user');
+
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('row', { name: /d@jwt.com/ })).toBeVisible();
+});
+
+test('admin filtering users from a later page starts on the first page', async ({ page }) => {
+  await mockBackend(page, { loggedInAs: users.admin, extraUsers: 12 });
+  await page.goto('/admin-dashboard');
+
+  await page.getByRole('button', { name: 'Next users page' }).click();
+  await expect(page.getByRole('row', { name: /diner12@jwt.com/ })).toBeVisible();
+
+  await page.getByPlaceholder('Filter users').fill('Diner 1');
+  await page.getByRole('button', { name: 'Filter users' }).click();
+  await expect(page.getByRole('row', { name: /diner1@jwt.com/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Previous users page' })).toBeDisabled();
+});

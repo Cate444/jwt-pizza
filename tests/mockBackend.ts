@@ -21,6 +21,8 @@ export interface MockOptions {
   loggedInAs?: User;
   orderFails?: boolean;
   verifyFails?: boolean;
+  updateUserFails?: boolean;
+  deleteUserFails?: boolean;
   // Adds this many extra diner accounts so user lists have more than one page.
   extraUsers?: number;
 }
@@ -97,6 +99,7 @@ export async function mockBackend(page: Page, options: MockOptions = {}) {
         if (!caller?.roles.some((r) => r.role === 'admin')) return json(route, { message: 'unable to delete a user' }, 403);
         const index = accounts.findIndex((u) => u.id === m![1]);
         if (index < 0) return json(route, { message: 'unknown user' }, 404);
+        if (options.deleteUserFails) return json(route, { message: 'unable to delete user' }, 500);
         accounts.splice(index, 1);
         return json(route, { message: 'user deleted' });
       }
@@ -108,6 +111,7 @@ export async function mockBackend(page: Page, options: MockOptions = {}) {
         if (caller.id !== m[1] && !isAdmin) return json(route, { message: 'unauthorized' }, 403);
         const user = accounts.find((u) => u.id === m![1]);
         if (!user) return json(route, { message: 'unknown user' }, 404);
+        if (options.updateUserFails) return json(route, { message: 'unable to update user' }, 500);
         if (body.name) user.name = body.name;
         if (body.email) user.email = body.email;
         if (body.password) user.password = body.password;

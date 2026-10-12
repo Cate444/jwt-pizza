@@ -11,28 +11,33 @@ interface Props {
   user: User | null;
 }
 
+const franchisePageLimit = 3;
+const userPageLimit = 10;
+
 export default function AdminDashboard(props: Props) {
   const navigate = useNavigate();
   const [franchiseList, setFranchiseList] = React.useState<FranchiseList>({ franchises: [], more: false });
   const [franchisePage, setFranchisePage] = React.useState(0);
+  const [franchiseFilter, setFranchiseFilter] = React.useState('');
   const filterFranchiseRef = React.useRef<HTMLInputElement>(null);
   const [userList, setUserList] = React.useState<UserList>({ users: [], more: false });
   const [userPage, setUserPage] = React.useState(0);
+  const [userFilter, setUserFilter] = React.useState('');
   const filterUserRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
     (async () => {
-      setFranchiseList(await pizzaService.getFranchises(franchisePage, 3, '*'));
+      setFranchiseList(await pizzaService.getFranchises(franchisePage, franchisePageLimit, `*${franchiseFilter}*`));
     })();
-  }, [props.user, franchisePage]);
+  }, [props.user, franchisePage, franchiseFilter]);
 
   React.useEffect(() => {
     (async () => {
       if (Role.isRole(props.user, Role.Admin)) {
-        setUserList(await pizzaService.getUsers(userPage, 10, `*${filterUserRef.current?.value ?? ''}*`));
+        setUserList(await pizzaService.getUsers(userPage, userPageLimit, `*${userFilter}*`));
       }
     })();
-  }, [props.user, userPage]);
+  }, [props.user, userPage, userFilter]);
 
   function createFranchise() {
     navigate('/admin-dashboard/create-franchise');
@@ -46,13 +51,14 @@ export default function AdminDashboard(props: Props) {
     navigate('/admin-dashboard/close-store', { state: { franchise: franchise, store: store } });
   }
 
-  async function filterFranchises() {
-    setFranchiseList(await pizzaService.getFranchises(franchisePage, 10, `*${filterFranchiseRef.current?.value}*`));
+  function filterFranchises() {
+    setFranchisePage(0);
+    setFranchiseFilter(filterFranchiseRef.current?.value ?? '');
   }
 
-  async function filterUsers() {
+  function filterUsers() {
     setUserPage(0);
-    setUserList(await pizzaService.getUsers(0, 10, `*${filterUserRef.current?.value}*`));
+    setUserFilter(filterUserRef.current?.value ?? '');
   }
 
   function deleteUser(user: User) {

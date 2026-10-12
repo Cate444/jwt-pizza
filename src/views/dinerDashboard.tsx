@@ -15,9 +15,12 @@ interface Props {
 export default function DinerDashboard(props: Props) {
   const user = props.user || ({} as User);
   const [orders, setOrders] = React.useState<Order[]>([]);
-  const nameRef = React.useRef<HTMLInputElement>(null);
-  const emailRef = React.useRef<HTMLInputElement>(null);
-  const passwordRef = React.useRef<HTMLInputElement>(null);
+  const [name, setName] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [updateError, setUpdateError] = React.useState('');
+
+  const validationError = validateUser(name, email);
 
   React.useEffect(() => {
     (async () => {
@@ -36,21 +39,32 @@ export default function DinerDashboard(props: Props) {
     return role.role;
   }
 
+  function openEditor() {
+    setName(user.name ?? '');
+    setEmail(user.email ?? '');
+    setPassword('');
+    setUpdateError('');
+    HSOverlay.open(document.getElementById('hs-jwt-modal')!);
+  }
+
   async function updateUser() {
     let updatedUser: User = {
       id: user.id,
-      name: nameRef.current?.value,
-      email: emailRef.current?.value,
-      password: passwordRef.current?.value || undefined,
+      name: name,
+      email: email,
+      password: password || undefined,
       roles: user.roles,
     };
 
-    await pizzaService.updateUser(updatedUser);
-
-    props.setUser(updatedUser);
-    setTimeout(() => {
-      HSOverlay.close(document.getElementById('hs-jwt-modal')!);
-    }, 100);
+    try {
+      const savedUser = await pizzaService.updateUser(updatedUser);
+      props.setUser({ ...savedUser, roles: savedUser.roles ?? user.roles });
+      setTimeout(() => {
+        HSOverlay.close(document.getElementById('hs-jwt-modal')!);
+      }, 100);
+    } catch (error: any) {
+      setUpdateError(`Unable to update user: ${error?.message ?? 'unknown error'}`);
+    }
   }
 
   return (
@@ -58,7 +72,7 @@ export default function DinerDashboard(props: Props) {
       <div className="text-start py-8 px-4 sm:px-6 lg:px-8">
         <div className="hs-tooltip inline-block">
           <img className="hs-tooltip-toggle relative inline-block size-[96px] rounded-full ring-2 ring-white hover:z-10" src="https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=facearea&facepad=2&w=300&h=300&q=80" alt="Employee stock photo" />
-          <Button title="Edit" className="w-16 p-0" onPress={() => HSOverlay.open(document.getElementById('hs-jwt-modal')!)} />
+          <Button title="Edit" className="w-16 p-0" onPress={openEditor} />
         </div>
 
         <div className="my-4 text-lg text-orange-200 text-start grid grid-cols-5 gap-2">
@@ -136,15 +150,18 @@ export default function DinerDashboard(props: Props) {
             <div className="p-4 overflow-y-scroll max-h-52">
               <div className="my-4 text-lg text-start grid grid-cols-5 gap-2 items-center">
                 <div className="font-semibold">name:</div>
-                <input type="text" className="col-span-4 border border-gray-300 rounded-md p-1" defaultValue={user.name} ref={nameRef} />
+                <input type="text" aria-label="Name" className="col-span-4 border border-gray-300 rounded-md p-1" value={name} onChange={(e) => setName(e.target.value)} />
                 <div className="font-semibold">email:</div>
-                <input type="email" className="col-span-4 border border-gray-300 rounded-md p-1" defaultValue={user.email} ref={emailRef} />
+                <input type="email" aria-label="Email" className="col-span-4 border border-gray-300 rounded-md p-1" value={email} onChange={(e) => setEmail(e.target.value)} />
                 <div className="font-semibold">password:</div>
-                <input id="password" type="text" className="col-span-4 border border-gray-300 rounded-md p-1" defaultValue="" ref={passwordRef} />
+                <input id="password" type="text" aria-label="Password" className="col-span-4 border border-gray-300 rounded-md p-1" value={password} onChange={(e) => setPassword(e.target.value)} />
+              </div>
+              <div role="alert" className="text-sm text-red-600">
+                {validationError || updateError}
               </div>
             </div>
             <div className="flex justify-end items-center gap-x-2 py-3 px-4 border-t bg-slate-200 rounded-b-xl">
-              <button type="button" className="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" onClick={updateUser}>
+              <button type="button" className="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none" onClick={updateUser} disabled={!!validationError}>
                 Update
               </button>
             </div>
@@ -153,4 +170,14 @@ export default function DinerDashboard(props: Props) {
       </div>
     </View>
   );
+}
+
+function validateUser(name: string, email: string) {
+  if (!name.trim()) {
+    return 'Name is required';
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return 'Enter a valid email address';
+  }
+  return '';
 }

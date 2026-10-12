@@ -8,10 +8,15 @@ import { useBreadcrumb } from '../hooks/appNavigation';
 export default function DeleteUser() {
   const state = useLocation().state;
   const navigateToParentPath = useBreadcrumb();
+  const [message, setMessage] = React.useState('');
 
   async function deleteUser() {
-    await pizzaService.deleteUser(state.user);
-    navigateToParentPath();
+    try {
+      await pizzaService.deleteUser(state.user);
+      navigateToParentPath();
+    } catch (error: any) {
+      setMessage(`Unable to delete user: ${error?.message ?? 'unknown error'}`);
+    }
   }
 
   return (
@@ -19,6 +24,9 @@ export default function DeleteUser() {
       <div className='text-start py-8 px-4 sm:px-6 lg:px-8'>
         <div className='text-neutral-100'>
           Are you sure you want to delete <span className='text-orange-500'>{state.user.name}</span>? This will remove their account and cannot be restored.
+        </div>
+        <div role='alert' className='text-yellow-200'>
+          {message}
         </div>
         <Button title='Delete' onPress={deleteUser} />
         <Button title='Cancel' onPress={navigateToParentPath} className='bg-transparent border-neutral-300' />
