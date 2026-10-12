@@ -21,10 +21,15 @@ export interface MockOptions {
   loggedInAs?: User;
   orderFails?: boolean;
   verifyFails?: boolean;
+  // Adds this many extra diner accounts so user lists have more than one page.
+  extraUsers?: number;
 }
 
 export async function mockBackend(page: Page, options: MockOptions = {}) {
   const accounts: User[] = Object.values(users).map((u) => ({ ...u }));
+  for (let i = 1; i <= (options.extraUsers ?? 0); i++) {
+    accounts.push({ id: String(1000 + i), name: `Diner ${i}`, email: `diner${i}@jwt.com`, password: 'diner', roles: [{ role: 'diner' }] });
+  }
   let franchises: Franchise[] = [
     { id: '2', name: 'LotaPizza', admins: [{ id: '4', name: 'Frank', email: 'f@jwt.com' }], stores: [{ id: '4', name: 'Lehi', totalRevenue: 0.05 }, { id: '5', name: 'Springville', totalRevenue: 0.1 }] },
     { id: '3', name: 'PizzaCorp', admins: [], stores: [{ id: '7', name: 'Spanish Fork', totalRevenue: 0 }] },
@@ -75,6 +80,25 @@ export async function mockBackend(page: Page, options: MockOptions = {}) {
       if (path === '/api/user/me') {
         const user = userFromRequest(route);
         return user ? json(route, publicUser(user)) : json(route, { message: 'unauthorized' }, 401);
+      }
+
+      if (path === '/api/user' && method === 'GET') {
+        const caller = userFromRequest(route);
+        if (!caller?.roles.some((r) => r.role === 'admin')) return json(route, { message: 'unable to list users' }, 403);
+        const page = Number(url.searchParams.get('page') ?? 0);
+        const limit = Number(url.searchParams.get('limit') ?? 10);
+        const name = (url.searchParams.get('name') ?? '*').replace(/\*/g, '').toLowerCase();
+        const matching = accounts.filter((u) => u.name.toLowerCase().includes(name));
+        return json(route, { users: matching.slice(page * limit, (page + 1) * limit).map(publicUser), more: matching.length > (page + 1) * limit });
+      }
+
+      if ((m = path.match(/^\/api\/user\/(\w+)$/)) && method === 'DELETE') {
+        const caller = userFromRequest(route);
+        if (!caller?.roles.some((r) => r.role === 'admin')) return json(route, { message: 'unable to delete a user' }, 403);
+        const index = accounts.findIndex((u) => u.id === m![1]);
+        if (index < 0) return json(route, { message: 'unknown user' }, 404);
+        accounts.splice(index, 1);
+        return json(route, { message: 'user deleted' });
       }
 
       if ((m = path.match(/^\/api\/user\/(\w+)$/)) && method === 'PUT') {

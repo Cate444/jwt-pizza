@@ -118,3 +118,57 @@ test('admin updates their info', async ({ page }) => {
   await expect(page.getByRole('main')).toContainText('Pizza Admin');
   await expect(page.getByRole('main')).toContainText('admin');
 });
+
+test('admin lists and filters users', async ({ page }) => {
+  await mockBackend(page, { loggedInAs: users.admin });
+  await page.goto('/admin-dashboard');
+
+  await expect(page.getByRole('row', { name: /d@jwt.com/ })).toContainText('Kai Chen');
+  await expect(page.getByRole('row', { name: /f@jwt.com/ })).toContainText('franchisee');
+  await expect(page.getByRole('row', { name: /a@jwt.com/ })).toContainText('admin');
+
+  await page.getByPlaceholder('Filter users').fill('kai');
+  await page.getByRole('button', { name: 'Filter users' }).click();
+  await expect(page.getByRole('row', { name: /d@jwt.com/ })).toBeVisible();
+  await expect(page.getByRole('row', { name: /f@jwt.com/ })).toHaveCount(0);
+  await expect(page.getByRole('row', { name: /a@jwt.com/ })).toHaveCount(0);
+});
+
+test('admin paginates users', async ({ page }) => {
+  await mockBackend(page, { loggedInAs: users.admin, extraUsers: 12 });
+  await page.goto('/admin-dashboard');
+
+  await expect(page.getByRole('row', { name: /diner7@jwt.com/ })).toBeVisible();
+  await expect(page.getByRole('row', { name: /diner12@jwt.com/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Previous users page' })).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Next users page' }).click();
+  await expect(page.getByRole('row', { name: /diner12@jwt.com/ })).toBeVisible();
+  await expect(page.getByRole('row', { name: /diner7@jwt.com/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Next users page' })).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Previous users page' }).click();
+  await expect(page.getByRole('row', { name: /diner7@jwt.com/ })).toBeVisible();
+});
+
+test('admin deletes a user', async ({ page }) => {
+  await mockBackend(page);
+  await page.goto('/');
+  await login(page, users.admin);
+  await nav(page).getByRole('link', { name: 'Admin' }).click();
+
+  await page.getByRole('row', { name: /d@jwt.com/ }).getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText('Are you sure you want to delete Kai Chen?')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('row', { name: /d@jwt.com/ })).toBeVisible();
+
+  await page.getByRole('row', { name: /d@jwt.com/ }).getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: 'Delete' }).click();
+  await expect(page.getByText("Mama Ricci's kitchen")).toBeVisible();
+  await expect(page.getByRole('row', { name: /d@jwt.com/ })).toHaveCount(0);
+
+  // The deleted user can no longer log in
+  await nav(page).getByRole('link', { name: 'Logout' }).click();
+  await login(page, users.diner);
+  await expect(page.getByText('unknown user')).toBeVisible();
+});

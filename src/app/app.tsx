@@ -17,6 +17,7 @@ import DinerDashboard from '../views/dinerDashboard';
 import CreateStore from '../views/createStore';
 import CreateFranchise from '../views/createFranchise';
 import CloseFranchise from '../views/closeFranchise';
+import DeleteUser from '../views/deleteUser';
 import CloseStore from '../views/closeStore';
 import Payment from '../views/payment';
 import NotFound from '../views/notFound';
@@ -77,6 +78,7 @@ export default function App() {
     { title: 'Admin', to: '/admin-dashboard', component: <AdminDashboard user={user} />, constraints: [isAdmin], display: ['nav'] },
     { title: 'Create franchise', to: '/:subPath?/create-franchise', component: <CreateFranchise />, display: [] },
     { title: 'Close franchise', to: '/:subPath?/close-franchise', component: <CloseFranchise />, display: [] },
+    { title: 'Delete user', to: '/:subPath?/delete-user', component: <DeleteUser />, display: [] },
     { title: 'Create store', to: '/:subPath?/create-store', component: <CreateStore />, display: [] },
     { title: 'Close store', to: '/:subPath?/close-store', component: <CloseStore />, display: [] },
     { title: 'Payment', to: '/payment', component: <Payment />, display: [] },
