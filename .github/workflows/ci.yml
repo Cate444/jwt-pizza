@@ -79,18 +79,6 @@ jobs:
     environment: production
     runs-on: ubuntu-latest
     steps:
-      - name: Debug OIDC (temporary)
-        env:
-          AWS_ACCOUNT: ${{ secrets.AWS_ACCOUNT }}
-          CI_IAM_ROLE: ${{ secrets.CI_IAM_ROLE }}
-        run: |
-          echo "AWS_ACCOUNT length: ${#AWS_ACCOUNT} (expect 12)"
-          echo "CI_IAM_ROLE length: ${#CI_IAM_ROLE} (expect 9)"
-          [ "$AWS_ACCOUNT" = "982081086081" ] && echo "AWS_ACCOUNT matches" || echo "AWS_ACCOUNT does NOT match"
-          [ "$CI_IAM_ROLE" = "github-ci" ] && echo "CI_IAM_ROLE matches" || echo "CI_IAM_ROLE does NOT match"
-          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
-          echo "$TOKEN" | python3 -c "import sys,json,base64; p=sys.stdin.read().split('.')[1]; p+='='*(-len(p)%4); c=json.loads(base64.urlsafe_b64decode(p)); print({k: c[k] for k in ('iss','aud','sub')})"
-
       - name: Create OIDC token to AWS
         uses: aws-actions/configure-aws-credentials@v6.3.0
         with:
