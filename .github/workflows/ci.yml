@@ -76,6 +76,7 @@ jobs:
           path: dist/
   deploy:
     needs: build
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Create OIDC token to AWS
