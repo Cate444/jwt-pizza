@@ -85,7 +85,7 @@ I researched this in two ways: reading, and testing my assumptions against my ow
 
 ## Experiments
 
-All experiments were run against my fork of [jwt-pizza-service](https://github.com/Cate444/jwt-pizza-service).
+All experiments were run against my fork of [jwt-pizza-service](https://github.com/Cate444/jwt-pizza-service). The experiment changes (Stryker config, new tests and scripts) live on a separate local branch so they don't affect my deployed service, so **every file needed to reproduce the experiments is included in full below**.
 
 | Tool | Version |
 |---|---|
@@ -279,7 +279,7 @@ The three old store tests all pass against the bug. Only the new test catches it
 
 #### B. Factory request URL, method, and auth header (StringLiteral / ObjectLiteral)
 
-Seven mutants survived in the call to the pizza factory, including:
+Six mutants survived in the call to the pizza factory, including:
 
 ```diff
 // src/routes/orderRouter.js:86-88 (createOrder)
@@ -334,7 +334,7 @@ npx stryker run --mutate "src/routes/orderRouter.js:77-101" --reporters clear-te
 Done in 12 seconds.
 ```
 
-All seven factory-request mutants are now killed. The two left are a latency calculation (`Date.now() - factoryStart` → `+`, which I left as a "debatable" example because it only affects a metric) and the `'/'` → `""` route path (Experiment 3). Limiting Stryker to a line range took this run from 5+ minutes down to **12 seconds**.
+All six factory-request mutants are now killed. The two left are a latency calculation (`Date.now() - factoryStart` → `+`, which I left as a "debatable" example because it only affects a metric) and the `'/'` → `""` route path (Experiment 3). Limiting Stryker to a line range took this run from 5+ minutes down to **12 seconds**.
 
 #### D. Delete-user response body (ObjectLiteral / StringLiteral)
 
@@ -480,12 +480,84 @@ export default {
 | R5 | `concurrency: 1` |
 | R6 | `coverageAnalysis: 'off'` |
 
-`curiosity/perf/runPerf.sh` runs them **one at a time** (so runs don't add load to each other) and records how long each takes, and `curiosity/perf/summarize.js` reads each JSON report and prints a table:
+The other five configs are identical except for the setting in the table (R1 and R2 add nothing). `curiosity/perf/runPerf.sh` runs them **one at a time** (so runs don't add load to each other) and records how long each takes, and `curiosity/perf/summarize.js` reads each JSON report and prints a table:
 
 ```bash
 bash curiosity/perf/runPerf.sh        # ~1.5 hours total
 node curiosity/perf/summarize.js
 ```
+
+<details>
+<summary><code>curiosity/perf/runPerf.sh</code></summary>
+
+```bash
+#!/usr/bin/env bash
+# Curiosity report performance experiment: run Stryker once per config, one at a time
+# (never in parallel, so runs don't add database load to each other).
+#
+# Usage, from the repo root (MySQL must be running):
+#   bash curiosity/perf/runPerf.sh            # all runs
+#   bash curiosity/perf/runPerf.sh R1 R3      # just some runs
+# Then summarize with:
+#   node curiosity/perf/summarize.js
+set -u
+cd "$(dirname "$0")/../.."
+mkdir -p reports/perf
+
+runs=("$@")
+[ ${#runs[@]} -eq 0 ] && runs=(R1 R2 R3 R4 R5 R6)
+
+for run in "${runs[@]}"; do
+  echo "=== $run started $(date '+%H:%M:%S')"
+  start=$(date +%s)
+  npx stryker run "curiosity/perf/$run.config.mjs" > "reports/perf/$run.log" 2>&1
+  status=$?
+  seconds=$(( $(date +%s) - start ))
+  echo "$seconds" > "reports/perf/$run.seconds"
+  echo "=== $run finished in ${seconds}s (exit $status)"
+done
+```
+
+</details>
+
+<details>
+<summary><code>curiosity/perf/summarize.js</code></summary>
+
+```js
+// Summarize the performance experiment: one row per run from reports/perf/<run>.json.
+// Usage, from the repo root: node curiosity/perf/summarize.js
+const fs = require('fs');
+const path = require('path');
+
+const dir = 'reports/perf';
+const runs = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => f.replace('.json', '')).sort();
+
+const rows = runs.map((run) => {
+  const report = JSON.parse(fs.readFileSync(path.join(dir, `${run}.json`), 'utf8'));
+  const counts = { Killed: 0, Timeout: 0, Survived: 0, NoCoverage: 0, CompileError: 0, RuntimeError: 0, Ignored: 0 };
+  for (const file of Object.values(report.files)) {
+    for (const m of file.mutants) counts[m.status] = (counts[m.status] || 0) + 1;
+  }
+  const detected = counts.Killed + counts.Timeout;
+  const valid = detected + counts.Survived + counts.NoCoverage;
+  const secondsFile = path.join(dir, `${run}.seconds`);
+  const seconds = fs.existsSync(secondsFile) ? Number(fs.readFileSync(secondsFile, 'utf8')) : NaN;
+  return {
+    run,
+    'time (m:ss)': `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`,
+    killed: counts.Killed,
+    timeout: counts.Timeout,
+    survived: counts.Survived,
+    'no cov': counts.NoCoverage,
+    'score %': ((100 * detected) / valid).toFixed(2),
+    'score w/o timeouts %': ((100 * counts.Killed) / valid).toFixed(2),
+  };
+});
+
+console.table(rows);
+```
+
+</details>
 
 ```
 ┌──────┬─────────────┬────────┬─────────┬──────────┬────────┬─────────┬──────────────────────┐
@@ -537,7 +609,7 @@ I would also exclude the `docs` arrays from mutation. They're static mutants (th
 
 ## What I learned
 
-> **TODO (you):** one or two sentences on what you predicted before the first run and how it compared.
+**My prediction vs. what happened.** Before the first run, I expected my tests to do much better. I thought they were nearly perfect and only a few mutants would survive. Instead, 253 survived. I also expected each fix to make a bigger difference to the score, but each new test or assertion only killed a handful of mutants. Overall, I overestimated how well I was really testing my code.
 
 **Coverage measures what runs; mutation testing measures what is checked.** I went in thinking my tests were good because the coverage was 97.7%. Files like `orderRouter.js` had 100% line coverage and less than half their mutants killed. Every line ran, but many lines were never actually checked.
 
