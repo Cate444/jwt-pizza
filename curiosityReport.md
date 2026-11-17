@@ -125,6 +125,7 @@ const config = {
     '!src/testHelpers.js',
     '!src/index.js',
     '!src/init.js',
+    '!src/config.js', // settings and secrets: not logic, and keeps secrets out of the HTML report
   ],
 
   // Only run the tests that actually cover each mutant (big speedup)
@@ -154,6 +155,9 @@ npx stryker run
 ```
 
 The interactive report is written to `reports/mutation/mutation.html`.
+
+> **⚠️ Watch out: the HTML report contains your source code, including secrets.**
+> Stryker's HTML report is a single self-contained file that embeds the full source of **every file it mutates**, so it can highlight mutants line by line. My first config didn't exclude `src/config.js`, so the report ended up containing my JWT secret, database password and API keys, even though `config.js` itself is gitignored. I only noticed when I copied the report into another repo to take a screenshot. Mutating a settings file is also pointless (`config.js` scored 35% because blanking out a password just breaks the connection), so I added `'!src/config.js'` to `mutate`. Experiments 1 and 4 were run before this change, so their totals still include `config.js`'s mutants. Lesson: treat mutation reports like build artifacts. Keep them gitignored, and never mutate files that hold secrets.
 
 ### Experiment 1: Coverage vs. mutation score (baseline)
 
